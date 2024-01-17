@@ -17,12 +17,7 @@ public class SearchEngine {
     private IndexSearcher searcher = null;
     private QueryParser parser = null;
 
-    /**
-     * Constructor for the Search Engine
-     *
-     * @throws IOException
-     */
-    public SearchEngine() throws IOException {
+    public SearchEngine() {
         try {
             // give the searcher the index path to look into
             searcher = new IndexSearcher(DirectoryReader.open(FSDirectory.open(new File("wiki-index").toPath())));
@@ -35,30 +30,11 @@ public class SearchEngine {
         }
     }
 
-    /**
-     * Search for a specific query string.
-     *
-     * @param queryString
-     *            a query from the user
-     * @param i
-     *            number of top documents to be retrieved
-     * @return a list of Top documents retrieved
-     * @throws ParseException
-     * @throws IOException
-     */
     public TopDocs performSearch(String queryString, int i) throws ParseException, IOException {
         Query query = parser.parse(queryString);
         return searcher.search(query, i);
     }
 
-    /**
-     * get a specific document from the list of top documents retrieved.
-     *
-     * @param docid
-     *            documents ID that is needed
-     * @return Matching document
-     * @throws IOException
-     */
     public Document getDocument(int docid) throws IOException {
         return searcher.doc(docid);
     }

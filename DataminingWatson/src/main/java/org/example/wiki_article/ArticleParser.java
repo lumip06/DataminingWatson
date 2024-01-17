@@ -1,116 +1,152 @@
 package org.example.wiki_article;
 
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamConstants;
-import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.XMLStreamReader;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 public class ArticleParser {
-	ArticleIndexer indexer = null;
+	ArticleIndexer articleIndexer = null;
+	String dataPath = "src/main/java/org/example/wiki-subset-20140602";
 
-	/**
-	 * Main method.
-	 * 
-	 * @param args
-	 *            argument parameters
-	 */
-	public static void main(String args[]) {
-		// ArticleParser parser = new ArticleParser();
-		// parser.run();
+	public void run(ArticleIndexer articleIndexer) throws IOException {
+		this.articleIndexer = articleIndexer;
+
+		List<File> files = this.getFilesFromDirectory(new File(dataPath));
+		List<Article> articleList = this.createArticlesFromDirectory(files);
+
+		this.addArticlesToIndexWriter(articleList);
 	}
 
-	/**
-	 * Start the whole process of parsing the XML file to be indexed.
-	 * 
-	 * @param _indexer
-	 *            ArticleIndexer class instance, that have an open Index Writer.
-	 * @throws XMLStreamException
-	 * @throws IOException
-	 */
-	public void run(ArticleIndexer _indexer) throws XMLStreamException, IOException {
-		indexer = _indexer;
-		XMLStreamReader read = this.openReader();
-		this.parse(read);
-		this.close(read);
-	}
-
-	/**
-	 * Open XML file, and start streaming it.
-	 * 
-	 * @return Opened XML stream reader.
-	 * @throws FileNotFoundException
-	 * @throws XMLStreamException
-	 */
-	private XMLStreamReader openReader() throws FileNotFoundException, XMLStreamException {
-		XMLInputFactory factory = XMLInputFactory.newFactory();
-		XMLStreamReader reader = factory.createXMLStreamReader(new FileInputStream("src/main/java/org/example/wiki_dataset/wiki_data.xml"));
-
-		return reader;
-	}
-
-	/**
-	 * Parse an XML stream reader block (XML tag <..> </..>)
-	 * 
-	 * @param r
-	 *            Stream reader
-	 * @throws XMLStreamException
-	 * @throws IOException
-	 */
-	private void parse(XMLStreamReader r) throws XMLStreamException, IOException {
-		Article currArt = null;
-		String tagContent = null;
-		String output = null;
-
-		while (r.hasNext()) {
-			int event = r.next();
-
-			// figure out which tag is the stream reading, and act accordingly.
-			switch (event) {
-			case XMLStreamConstants.START_ELEMENT:
-				if ("Article".equals(r.getLocalName()))
-					currArt = new Article();
-				if ("Wiki".equals(r.getLocalName()))
-					continue;
-				break;
-			case XMLStreamConstants.CHARACTERS:
-				tagContent = r.getText().trim();
-				break;
-			case XMLStreamConstants.END_ELEMENT:
-				switch (r.getLocalName()) {
-				case "Article":
-					indexer.indexArticle(currArt, indexer);
-					currArt = currArt.newArticle();
-					break;
-				case "ID":
-					currArt.setId(tagContent);
-					break;
-				case "Link":
-					currArt.setLink(tagContent);
-					break;
-				case "Title":
-					currArt.setTitle(tagContent);
-					break;
-				case "Description":
-					if (tagContent == null)
-						currArt.setDesc("N/A");
-					currArt.setDesc(tagContent);
-					break;
-				}
-			}
+	private void addArticlesToIndexWriter(List<Article> articleList) throws IOException {
+		for (Article currArt : articleList) {
+			articleIndexer.indexArticle(currArt, articleIndexer);
 		}
 	}
 
-	/**
-	 * Close XML stream reader
-	 * 
-	 * @param reader
-	 *            Stream reader to be closed
-	 * @throws XMLStreamException
-	 */
-	private void close(XMLStreamReader reader) throws XMLStreamException {
-		reader.close();
+	public List<File> getFilesFromDirectory(File dir) {
+		List<File> directories = new ArrayList<>();
+
+		if (!dir.exists() || !dir.isDirectory()) {
+			throw new RuntimeException("Folder does not exist");
+		}
+
+		File[] files = dir.listFiles();
+
+		if (files != null) {
+			for (File file : files) {
+				if (file.isFile()) {
+					directories.add(file);
+				}
+			}
+		} else {
+			throw new RuntimeException("Files not found");
+		}
+		return directories;
+	}
+
+	private List<Article> createArticlesFromDirectory(List<File> files) {
+		List<Article> articleList = new ArrayList<>();
+		Map<String, String> redirectPageTitles = new HashMap<>();
+
+		int i = 1;
+		System.out.println("\n");
+		for (File file : files) {
+			ArticleParseResult result = processFile(file.getPath(), articleList, redirectPageTitles);
+
+			articleList = result.getArticleList();
+			redirectPageTitles = result.getRedirectPageTitles();
+
+			System.out.println(">>> file no.: " + i);
+			i++;
+		}
+
+		return articleList;
+	}
+
+	private ArticleParseResult processFile(String filePath, List<Article> articleList, Map<String, String> redirectPageTitles) {
+		List<Article> auxArticleList = new ArrayList<>();
+		Map<String, String> auxRedirectPageTitles = new HashMap<>();
+
+		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+			String line;
+			StringBuilder pageBody = new StringBuilder();
+			Article article = new Article();
+			boolean wasRedirect = false;
+
+			while ((line = reader.readLine()) != null) {
+				if (line.isBlank()) {
+					continue;
+				}
+				if (isTitle(line)) {
+					if (!article.getTitle().isEmpty() && !wasRedirect) {
+						article.setBody(pageBody.toString());
+						pageBody = new StringBuilder();
+						auxArticleList.add(article);
+					}
+					wasRedirect = false;
+					article = new Article();
+					String title = retrieveTitle(line);
+					article.setTitle(title);
+				} else if (isCategoryLine(line)) {
+					article.setCategories(tokenizeCategoryLine(line));
+				} else if (isRedirectLine(line)) {
+					auxRedirectPageTitles.put(article.getTitle(), getRedirectPageTitle(line));
+					wasRedirect = true;
+				} else {
+					pageBody.append(line);
+				}
+			}
+
+			if (!article.getTitle().isEmpty()) {
+				auxArticleList.add(article);
+			}
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		articleList.addAll(auxArticleList);
+		redirectPageTitles.putAll(auxRedirectPageTitles);
+
+		return new ArticleParseResult(auxArticleList, redirectPageTitles);
+	}
+
+	public static boolean isTitle(String input) {
+		if (input == null) {
+			return false;
+		}
+		String regex = "^\\[\\[(.*?)]]$";
+		Pattern pattern = Pattern.compile(regex);
+		Matcher matcher = pattern.matcher(input);
+		return matcher.matches();
+	}
+
+	public static String retrieveTitle(String input) {
+		String result = input.substring("[[".length());
+		return result.substring(0, result.length() - "]]".length());
+	}
+
+	public static boolean isCategoryLine(String input) {
+		return input != null && input.startsWith("CATEGORIES:");
+	}
+
+	public static List<String> tokenizeCategoryLine(String input) {
+		return new ArrayList<>(Stream.of(input.substring("CATEGORIES:".length()).split(",")).map(String::trim).toList());
+	}
+
+	public static boolean isRedirectLine(String input) {
+		return input != null && (input.startsWith("#REDIRECT") || input.startsWith("#redirect"));
+	}
+
+	public static String getRedirectPageTitle(String input) {
+		return input.substring("#REDIRECT".length()).trim();
 	}
 }

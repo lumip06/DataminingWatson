@@ -1,10 +1,8 @@
 package org.example.wiki_article;
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
+import org.apache.lucene.document.*;
+import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.IndexWriterConfig.OpenMode;
@@ -16,90 +14,62 @@ import java.io.File;
 import java.io.IOException;
 
 public class ArticleIndexer {
-	private IndexWriter indexwr;
+	private IndexWriter indexWriter;
 	String indexPath = "Wiki-Index";
 
-	/**
-	 * Constructor
-	 */
 	public ArticleIndexer() {
 	}
 
-	/**
-	 * Make directory for indexing, configure the index writer and create it.
-	 * 
-	 * @return instance of the Index Writer
-	 * @throws IOException
-	 */
 	private IndexWriter getIndexWriter() throws IOException {
 		File dir = new File(indexPath);
-		if (indexwr == null) {
-			// make directory if not exits
+		if (indexWriter == null) {
 			if (!dir.exists()) {
 				dir.mkdir();
 			}
 
-			// open and configure
 			Directory indexDir = FSDirectory.open(dir.toPath());
 			IndexWriterConfig config = new IndexWriterConfig(new StandardAnalyzer());
 			config.setOpenMode(OpenMode.CREATE);
-			indexwr = new IndexWriter(indexDir, config);
+			indexWriter = new IndexWriter(indexDir, config);
 		}
-		return indexwr;
+		return indexWriter;
 	}
 
-	/**
-	 * Close the Index Writer
-	 * 
-	 * @throws IOException
-	 */
 	private void closeIndexWriter() throws IOException {
-		if (indexwr != null) {
-			indexwr.close();
+		if (indexWriter != null) {
+			indexWriter.commit();
+			indexWriter.close();
 		}
 	}
 
-	/**
-	 * Index one article at a time to an open Index with an open Index Writer.
-	 * (Usually called from the Article Parser class)
-	 * 
-	 * @param currArticle
-	 *            Article to be indexed
-	 * @param index
-	 *            Index instance
-	 * @throws IOException
-	 */
 	public void indexArticle(Article currArticle, ArticleIndexer index) throws IOException {
-		System.out.println("Indexing Article " + currArticle.getId());
+		System.out.println("Indexing Article " + currArticle.getTitle());
 
-		// create a document and fill out its fields
 		Document doc = new Document();
-		doc.add(new StringField("ID", currArticle.getId(), Field.Store.YES));
 		doc.add(new StringField("Title", currArticle.getTitle(), Field.Store.YES));
-		doc.add(new StringField("Link", currArticle.getLink(), Field.Store.YES));
-		doc.add(new StringField("Description", currArticle.getDesc(), Field.Store.YES));
-		String searchableText = currArticle.getTitle() + " " + currArticle.getDesc();
+
+		FieldType fieldType = new FieldType(StringField.TYPE_STORED);
+		fieldType.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
+		if (currArticle.getCategories().isEmpty()) {
+			doc.add(new Field("Category", "", fieldType));
+		} else {
+			for (String category : currArticle.getCategories()) {
+				doc.add(new Field("Category", category, fieldType));
+			}
+		}
+		doc.add(new TextField("Body", currArticle.getBody(), Field.Store.NO));
+		String searchableText = currArticle.getTitle() + " " + " " + currArticle.getCategories() + " " + currArticle.getBody();
 		doc.add(new TextField("Content", searchableText, Field.Store.NO));
 
-		// write document to index
-		index.indexwr.addDocument(doc);
+		index.indexWriter.addDocument(doc);
 	}
 
-	/**
-	 * Rebuild Index by reindexing all the current data set.
-	 * 
-	 * @throws IOException
-	 * @throws XMLStreamException
-	 */
-	public void rebuildIndexes() throws IOException, XMLStreamException {
-		// get index writer
+	public void buildIndexes() throws IOException, XMLStreamException {
 		getIndexWriter();
 
-		// run parser
 		ArticleParser parser = new ArticleParser();
 		parser.run(this);
 
-		// close index writer
 		closeIndexWriter();
 	}
 }
