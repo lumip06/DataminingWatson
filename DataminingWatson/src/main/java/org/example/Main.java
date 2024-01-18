@@ -3,10 +3,14 @@ package org.example;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
+import org.example.measurement.NDCG;
 import org.example.wiki_article.ArticleIndexer;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Scanner;
 
 public class Main {
@@ -59,6 +63,22 @@ public class Main {
                     System.out.println("System Exiting...Bye!");
                     exit = true;
                     options = false;
+                    break;
+                case "m":
+                    List<Integer> rankedItems = Arrays.asList(1, 2, 3, 4, 5);
+                    Collection<Integer> correctItems = Arrays.asList(3, 4, 5);
+                    Collection<Integer> ignoreItems = Arrays.asList(2);
+
+                    // Calculate NDCG
+                    double ndcg = NDCG.compute(rankedItems, correctItems, ignoreItems);
+
+                    // Calculate precision
+                    //TODO Calculate precision
+
+                    // Print the result
+                    System.out.println("NDCG: " + ndcg);
+                    System.out.println("Precision: " + 0);
+
                     break;
                 case "":
                     break;
