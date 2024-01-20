@@ -43,6 +43,13 @@
             <artifactId>lucene-backward-codecs</artifactId>
             <version>9.9.1</version>
         </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.apache.lucene/lucene-analysis-common -->
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-analysis-common</artifactId>
+            <version>9.9.1</version>
+        </dependency>
     </dependencies>
 
 </project>

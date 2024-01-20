@@ -1,5 +1,6 @@
 package org.example;
 
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
@@ -9,6 +10,7 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.util.Version;
 
 import java.io.File;
 import java.io.IOException;
@@ -23,7 +25,7 @@ public class SearchEngine {
             searcher = new IndexSearcher(DirectoryReader.open(FSDirectory.open(new File("wiki-index").toPath())));
 
             // which searchable field to look for
-            parser = new QueryParser("Content", new StandardAnalyzer());
+            parser = new QueryParser("Body", new EnglishAnalyzer(EnglishAnalyzer.getDefaultStopSet()));
         } catch (IOException e) {
             e.printStackTrace();
             System.out.println("Oopps! :( something went wrong!");

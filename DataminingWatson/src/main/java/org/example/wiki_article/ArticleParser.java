@@ -17,17 +17,19 @@ public class ArticleParser {
 	String dataPath = "src/main/java/org/example/wiki-subset-20140602";
 
 	public void run(ArticleIndexer articleIndexer) throws IOException {
+
 		this.articleIndexer = articleIndexer;
 
 		List<File> files = this.getFilesFromDirectory(new File(dataPath));
-		List<Article> articleList = this.createArticlesFromDirectory(files);
+		ArticleParseResult result = this.createArticlesFromDirectory(files);
 
-		this.addArticlesToIndexWriter(articleList);
+		this.addArticlesToIndexWriter(result);
 	}
 
-	private void addArticlesToIndexWriter(List<Article> articleList) throws IOException {
-		for (Article currArt : articleList) {
-			articleIndexer.indexArticle(currArt, articleIndexer);
+	private void addArticlesToIndexWriter(ArticleParseResult result) throws IOException {
+		for (Article currArt : result.getArticleList()) {
+			List<String> redirectPageTitles = result.getRedirectPageTitles().get(currArt.getTitle());
+			articleIndexer.indexArticle(currArt, redirectPageTitles, articleIndexer);
 		}
 	}
 
@@ -52,14 +54,15 @@ public class ArticleParser {
 		return directories;
 	}
 
-	private List<Article> createArticlesFromDirectory(List<File> files) {
+	private ArticleParseResult createArticlesFromDirectory(List<File> files) {
 		List<Article> articleList = new ArrayList<>();
-		Map<String, String> redirectPageTitles = new HashMap<>();
+		Map<String, List<String>> redirectPageTitles = new HashMap<>();
+		ArticleParseResult result = new ArticleParseResult(articleList, redirectPageTitles);
 
 		int i = 1;
 		System.out.println("\n");
 		for (File file : files) {
-			ArticleParseResult result = processFile(file.getPath(), articleList, redirectPageTitles);
+			result = processFile(file.getPath(), articleList, redirectPageTitles);
 
 			articleList = result.getArticleList();
 			redirectPageTitles = result.getRedirectPageTitles();
@@ -68,12 +71,12 @@ public class ArticleParser {
 			i++;
 		}
 
-		return articleList;
+		return result;
 	}
 
-	private ArticleParseResult processFile(String filePath, List<Article> articleList, Map<String, String> redirectPageTitles) {
+	private ArticleParseResult processFile(String filePath, List<Article> articleList, Map<String, List<String>> redirectPageTitles) {
 		List<Article> auxArticleList = new ArrayList<>();
-		Map<String, String> auxRedirectPageTitles = new HashMap<>();
+		Map<String, List<String>> auxRedirectPageTitles = new HashMap<>();
 
 		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
 			String line;
@@ -98,7 +101,11 @@ public class ArticleParser {
 				} else if (isCategoryLine(line)) {
 					article.setCategories(tokenizeCategoryLine(line));
 				} else if (isRedirectLine(line)) {
-					auxRedirectPageTitles.put(article.getTitle(), getRedirectPageTitle(line));
+					String redirectPage = getRedirectPageTitle(line);
+					if (!auxRedirectPageTitles.containsKey(redirectPage)) {
+						auxRedirectPageTitles.put(redirectPage, new ArrayList<>());
+					}
+					auxRedirectPageTitles.get(redirectPage).add(article.getTitle());
 					wasRedirect = true;
 				} else {
 					pageBody.append(line);
@@ -114,7 +121,17 @@ public class ArticleParser {
 		}
 
 		articleList.addAll(auxArticleList);
-		redirectPageTitles.putAll(auxRedirectPageTitles);
+
+		for (Map.Entry<String, List<String>> item : auxRedirectPageTitles.entrySet()) {
+			String key = item.getKey();
+			List<String> value = item.getValue();
+
+			if (redirectPageTitles.containsKey(key)) {
+				redirectPageTitles.get(key).addAll(value);
+			} else {
+				redirectPageTitles.put(key, value);
+			}
+		}
 
 		return new ArticleParseResult(auxArticleList, redirectPageTitles);
 	}

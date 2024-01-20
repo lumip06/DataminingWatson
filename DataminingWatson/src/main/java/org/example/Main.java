@@ -8,6 +8,7 @@ import org.example.wiki_article.ArticleIndexer;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Objects;
@@ -108,11 +109,11 @@ public class Main {
                 String category = line.trim().replace("-", "\\-").replace("!", "\\!");
 
                 if ((line = reader.readLine()) != null) {
-                    String content = line.trim().replace("-", "\\-").replace("!", "\\!");
+                    String body = line.trim().replace("-", "\\-").replace("!", "\\!");
 
                     if ((line = reader.readLine()) != null) {
                         String expectedResult = line.trim().replace("-", "\\-").replace("!", "\\!");
-                        runSingleQuery(category, content, expectedResult);
+                        runSingleQuery(category, body, expectedResult);
                     }
                 }
             }
@@ -121,8 +122,8 @@ public class Main {
         }
     }
 
-    public static void runSingleQuery(String category, String content, String expectedResult) throws IOException, ParseException {
-        String query = "content:\"" + content + "\" OR category:\"" + category + "\"";
+    public static void runSingleQuery(String category, String body, String expectedResult) throws IOException, ParseException {
+        String query = "Body:\"" + body + "\" OR Category:\"" + category + "\"";
 
         SearchEngine searchEngine = new SearchEngine();
         TopDocs topDocs = searchEngine.performSearch(query, maxDocNoToRetrieve);
@@ -147,7 +148,7 @@ public class Main {
         System.out.println("** Found " + hits.length + " hits.");
         System.out.println("** Perfect hit found: " + perfectHitFound + "\n");
 
-        System.out.println("** Content: " + content);
+        System.out.println("** Content: " + body);
         System.out.println("** Expected result: " + expectedResult);
         System.out.println("----------------------------------------------------------");
     }

@@ -12,10 +12,11 @@ import org.apache.lucene.store.FSDirectory;
 import javax.xml.stream.XMLStreamException;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 public class ArticleIndexer {
 	private IndexWriter indexWriter;
-	String indexPath = "Wiki-Index";
+	static String indexPath = "Wiki-Index";
 
 	public ArticleIndexer() {
 	}
@@ -42,34 +43,60 @@ public class ArticleIndexer {
 		}
 	}
 
-	public void indexArticle(Article currArticle, ArticleIndexer index) throws IOException {
-		System.out.println("Indexing Article " + currArticle.getTitle());
+	public void indexArticle(Article currentArticle, List<String> redirectedPages, ArticleIndexer index) throws IOException {
+		System.out.println("Indexing Article " + currentArticle.getTitle());
 
-		Document doc = new Document();
-		doc.add(new StringField("Title", currArticle.getTitle(), Field.Store.YES));
+		Document currentDocument = new Document();
 
-		FieldType fieldType = new FieldType(StringField.TYPE_STORED);
-		fieldType.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
-		if (currArticle.getCategories().isEmpty()) {
-			doc.add(new Field("Category", "", fieldType));
-		} else {
-			for (String category : currArticle.getCategories()) {
-				doc.add(new Field("Category", category, fieldType));
+		FieldType titleFieldType = new FieldType(StringField.TYPE_STORED);
+		titleFieldType.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
+		currentDocument.add(new Field("Title", currentArticle.getTitle(), titleFieldType));
+
+		if (redirectedPages != null) {
+			for (String title : redirectedPages){
+				currentDocument.add(new Field("Title", title, titleFieldType));
 			}
 		}
-		doc.add(new TextField("Body", currArticle.getBody(), Field.Store.NO));
-		String searchableText = currArticle.getTitle() + " " + " " + currArticle.getCategories() + " " + currArticle.getBody();
-		doc.add(new TextField("Content", searchableText, Field.Store.NO));
 
-		index.indexWriter.addDocument(doc);
+		FieldType categoryFieldType = new FieldType(StringField.TYPE_STORED);
+		categoryFieldType.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
+		if (currentArticle.getCategories().isEmpty()) {
+			currentDocument.add(new Field("Category", "", categoryFieldType));
+		} else {
+			for (String category : currentArticle.getCategories()) {
+				currentDocument.add(new Field("Category", category, categoryFieldType));
+			}
+		}
+		currentDocument.add(new TextField("Body", currentArticle.getBody(), Field.Store.NO));
+//		String searchableText = "title:\"" + currentArticle.getTitle() + "\" OR cate" + currentArticle.getCategories() + " " + currentArticle.getBody();
+//		currentDocument.add(new TextField("Content", currentArticle.getBody(), Field.Store.NO));
+
+		index.indexWriter.addDocument(currentDocument);
 	}
 
 	public void buildIndexes() throws IOException, XMLStreamException {
+		deleteFilesFromDirectory();
 		getIndexWriter();
 
 		ArticleParser parser = new ArticleParser();
 		parser.run(this);
 
 		closeIndexWriter();
+	}
+
+	public static void deleteFilesFromDirectory() {
+		File folder = new File(indexPath);
+		if (!folder.exists() || !folder.isDirectory()) {
+			throw new RuntimeException("Folder does not exist");
+		}
+
+		File[] files = folder.listFiles();
+		if (files != null) {
+			for (File file : files) {
+				if (file.isFile()) {
+					file.delete();
+				}
+			}
+		}
 	}
 }
