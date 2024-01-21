@@ -21,7 +21,7 @@ public class SearchEngine {
     public SearchEngine(String[] fields) {
         try {
             searcher = new IndexSearcher(DirectoryReader.open(FSDirectory.open(new File("wiki-index").toPath())));
-            parser = new MultiFieldQueryParser(fields, new EnglishAnalyzer(EnglishAnalyzer.getDefaultStopSet()));
+            parser = new MultiFieldQueryParser(fields, new EnglishAnalyzer());
         } catch (IOException e) {
             e.printStackTrace();
             System.out.println("Oopps! :( something went wrong!");
