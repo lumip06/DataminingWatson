@@ -15,7 +15,8 @@ import org.json.*;
 
 
 public class OpenAiChat {
-    private String openaiApiKey = "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";
+    // update with your own openai api key
+    private String openaiApiKey = "enter your own api key";
     public OpenAiChat() {
     }
 

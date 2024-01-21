@@ -285,13 +285,11 @@ public class Main {
                 id = (i + 1) + ". \t" + doc.get("Title") + "\t(score: " + score + " )";
                 System.out.println(id);
 
-                if(!foundQuestions.isEmpty() && correctAnswers.contains(doc.get("Title"))) {
+                if(!foundQuestions.isEmpty() && correctAnswers.contains(doc.get("Title").trim())) {
                     if(i == 0) {
                         perfectHitFound = true;
-                        perfectHitsFound++;
                     }
                     hitFound = true;
-                    hitsFound++;
                 }
             }
             if(!foundQuestions.isEmpty()){
@@ -310,15 +308,13 @@ public class Main {
             System.out.println("---------------------------");
 
             for (int i = 0; i < aiRank.size(); i++) {
-                id = (i + 1) + ". \t" + aiRank.get(i);
+                id = (i + 1) + ". \t" + aiRank.get(i).trim();
                 System.out.println(id);
-                if(!foundQuestions.isEmpty() && correctAnswers.contains(aiRank.get(i))) {
+                if(!foundQuestions.isEmpty() && correctAnswers.contains(aiRank.get(i).trim())) {
                     if(i == 0) {
                         perfectHitFound = true;
-                        perfectHitsFound++;
                     }
                     hitFound = true;
-                    hitsFound++;
                 }
             }
             if(!foundQuestions.isEmpty()){
