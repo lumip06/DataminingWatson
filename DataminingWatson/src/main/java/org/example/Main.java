@@ -83,7 +83,7 @@ public class Main {
         String category = in.nextLine();
 
         System.out.println("Enter a search query: ");
-        String query = in.nextLine();
+        String clue = in.nextLine();
         
         try {
             System.out.println("\n");
@@ -92,13 +92,17 @@ public class Main {
             long startTime = System.nanoTime();
 
             String[] fields;
+            String queryString;
             if(Objects.equals(category, "")) {
                 fields = new String[]{"Body"};
+                queryString = clue;
             } else {
-                fields = new String[]{"Category", "Body"};
+                fields = new String[]{"Body", "Category"};
+                queryString = "(" + clue + ") OR (" + category + ")";
             }
+
             SearchEngine se = new SearchEngine(fields);
-            TopDocs td = se.performSearch(query, maxDocNoToRetrieve);
+            TopDocs td = se.performSearch(queryString, maxDocNoToRetrieve);
 
             long estimatedTime = System.nanoTime() - startTime;
             double seconds = (double) estimatedTime / 1000000000.0;
@@ -145,7 +149,7 @@ public class Main {
 
         String queryString = "(" + clue + ") OR (" + category + ")";
 
-        String[] fields = new String[]{"Body", "Content"};
+        String[] fields = new String[]{"Body", "Category"};
         SearchEngine searchEngine = new SearchEngine(fields);
         TopDocs topDocs = searchEngine.performSearch(queryString, maxDocNoToRetrieve);
         ScoreDoc[] hits = topDocs.scoreDocs;
@@ -170,7 +174,7 @@ public class Main {
         System.out.println("** Found " + hits.length + " hits.");
         System.out.println("** Perfect hit found: " + perfectHitFound + "\n");
 
-        System.out.println("** Content: " + clue);
+        System.out.println("** Clue: " + clue);
         System.out.println("** Expected result: " + expectedResult);
         System.out.println("----------------------------------------------------------");
     }
