@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 public class Main {
     private static final String questionsPath = "src/main/java/org/example/questions/questions.txt";
     private static int maxDocNoToRetrieve = 10;
-    private static int hitsFound;
+    private static int hitsFound, perfectHitsFound;
 
     public static void main(String[] args) {
         String option;
@@ -49,6 +49,17 @@ public class Main {
                 }
             }
         } while (!exit);
+    }
+
+    private static void setTopDocNum() {
+        System.out.println("Enter a number: ");
+
+        Scanner in = new Scanner(System.in);
+        int option = in.nextInt();
+
+        if(option > 0) {
+            maxDocNoToRetrieve = option;
+        }
     }
 
     private static void createIndex() {
@@ -119,9 +130,16 @@ public class Main {
 
     public static void runQuestions() {
         try(BufferedReader reader = new BufferedReader(new FileReader(questionsPath))) {
+            System.out.println("***********************");
+            System.out.println("* Performing search...");
+            System.out.println("***********************");
+
+            long startTime = System.nanoTime();
+
             String line;
             Pattern pattern = Pattern.compile("[.,:;!?-]");
             hitsFound = 0;
+            perfectHitsFound = 0;
 
             while ((line = reader.readLine()) != null) {
                 if (line.isBlank()) {
@@ -132,18 +150,26 @@ public class Main {
                 line = reader.readLine();
                 String clue = line.trim().replaceAll(pattern.pattern(), "");
                 line = reader.readLine();
-                String expectedResult = line.trim();
-                runSingleQuery(category, clue, expectedResult);
+                String answer = line.trim();
+
+                runSingleQuery(category, clue, answer);
             }
-            System.out.println("\n");
-            System.out.println("** Hits found: " + hitsFound + "/100");
-            System.out.println("\n");
+
+            long estimatedTime = System.nanoTime() - startTime;
+            double seconds = (double) estimatedTime / 1000000000.0;
+
+            System.out.println("\n**********************************************************");
+            System.out.println("* Results Found! (Elapsed Time: " + seconds + " Seconds)");
+            System.out.println("");
+            System.out.println("* Hits found (not on first position): " + hitsFound + "/100");
+            System.out.println("* Perfect hits found (on first position): " + perfectHitsFound + "/100");
+            System.out.println("**********************************************************\n");
         } catch (IOException | ParseException e) {
             throw new RuntimeException("Error reading questions file", e);
         }
     }
 
-    public static void runSingleQuery(String category, String clue, String expectedResult) throws IOException, ParseException {
+    public static void runSingleQuery(String category, String clue, String answer) throws IOException, ParseException {
         category = category.replace("(", "");
         category = category.replace(")", "");
 
@@ -154,17 +180,25 @@ public class Main {
         TopDocs topDocs = searchEngine.performSearch(queryString, maxDocNoToRetrieve);
         ScoreDoc[] hits = topDocs.scoreDocs;
 
+        boolean hitFound = false;
         boolean perfectHitFound = false;
+        String id;
+        float score;
 
         System.out.println("\n----------------------------------------------------------");
 
         for (int i = 0; i < hits.length; i++) {
-            int docId = hits[i].doc;
-            Document document = searchEngine.getDocument(docId);
-            System.out.println((i + 1) + ". \t" + document.get("Title"));
+            Document document = searchEngine.getDocument(hits[i].doc);
+            score = hits[i].score;
+            id = (i + 1) + ". \t" + document.get("Title") + "\t(score: " + score + " )";
+            System.out.println(id);
 
-            if(Objects.equals(document.get("Title"), expectedResult)) {
-                perfectHitFound = true;
+            if(Objects.equals(document.get("Title"), answer)) {
+                if(i == 0) {
+                    perfectHitFound = true;
+                    perfectHitsFound++;
+                }
+                hitFound = true;
                 hitsFound++;
             }
         }
@@ -172,25 +206,15 @@ public class Main {
             System.out.println("");
         }
         System.out.println("** Found " + hits.length + " hits.");
+        System.out.println("** Hit found: " + hitFound);
         System.out.println("** Perfect hit found: " + perfectHitFound + "\n");
 
         System.out.println("** Clue: " + clue);
-        System.out.println("** Expected result: " + expectedResult);
+        System.out.println("** Answer: " + answer);
         System.out.println("----------------------------------------------------------");
     }
 
-    private static void setTopDocNum() {
-        System.out.println("Enter a number: ");
-
-        Scanner in = new Scanner(System.in);
-        int op = in.nextInt();
-
-        if(op > 0) {
-            maxDocNoToRetrieve = op;
-        }
-    }
-
-    public static void prettyPrint(ScoreDoc[] hits, SearchEngine se) {
+    public static void prettyPrint(ScoreDoc[] hits, SearchEngine searchEngine) {
         String id;
         float score;
         try {
@@ -199,7 +223,7 @@ public class Main {
             System.out.println("-----------------------------");
 
             for (int i = 0; i < hits.length; i++) {
-                Document doc = se.getDocument(hits[i].doc);
+                Document doc = searchEngine.getDocument(hits[i].doc);
                 score = hits[i].score;
                 id = (i + 1) + ". \t" + doc.get("Title") + "\t(score: " + score + " )";
                 System.out.println(id);
