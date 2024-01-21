@@ -24,6 +24,17 @@ All needed to be done for set-up is just the cloning of the GitHub project. Afte
 
 
 ## Using the functions
+`create index `
+-
+`run question`
+-
+`run question with AI`
+-
+`run default questions and measure`
+-
+`set max number of retrieved documents (> 0 - default 10)`
+-
+
 
 
 
