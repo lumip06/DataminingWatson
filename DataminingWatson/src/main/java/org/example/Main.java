@@ -1,22 +1,32 @@
 package org.example;
 
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.example.wiki_article.ArticleIndexer;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Scanner;
+import java.util.regex.Pattern;
 
 public class Main {
     static int maxDocNoToRetrieve = 10;
     static String questionsPath = "src/main/java/org/example/questions/questions.txt";
+    static String indexPath = "Wiki-Index";
+    static int hitsFound;
 
     public static void main(String ars[]) {
         String op;
@@ -83,7 +93,8 @@ public class Main {
             System.out.println("Performing search");
 
             long startTime = System.nanoTime();
-            SearchEngine se = new SearchEngine();
+            String[] fields = new String[]{"Body"};
+            SearchEngine se = new SearchEngine(fields);
             TopDocs td = se.performSearch(query, maxDocNoToRetrieve);
             long estimatedTime = System.nanoTime() - startTime;
             double seconds = (double) estimatedTime / 1000000000.0;
@@ -101,32 +112,38 @@ public class Main {
     public static void runQuestions() {
         try(BufferedReader reader = new BufferedReader(new FileReader(questionsPath))) {
             String line;
+            Pattern pattern = Pattern.compile("[.,:;!?-]");
+            hitsFound = 0;
 
             while ((line = reader.readLine()) != null) {
                 if (line.isBlank()) {
                     continue;
                 }
-                String category = line.trim().replace("-", "\\-").replace("!", "\\!");
 
-                if ((line = reader.readLine()) != null) {
-                    String body = line.trim().replace("-", "\\-").replace("!", "\\!");
-
-                    if ((line = reader.readLine()) != null) {
-                        String expectedResult = line.trim().replace("-", "\\-").replace("!", "\\!");
-                        runSingleQuery(category, body, expectedResult);
-                    }
-                }
+                String category = line.trim().replaceAll(pattern.pattern(), "");
+                line = reader.readLine();
+                String clue = line.trim().replaceAll(pattern.pattern(), "");
+                line = reader.readLine();
+                String expectedResult = line.trim();
+                runSingleQuery(category, clue, expectedResult);
             }
+            System.out.println("\n");
+            System.out.println("** Hits found: " + hitsFound + "/100");
+            System.out.println("\n");
         } catch (IOException | ParseException e) {
             throw new RuntimeException("Error reading questions file", e);
         }
     }
 
-    public static void runSingleQuery(String category, String body, String expectedResult) throws IOException, ParseException {
-        String query = "Body:\"" + body + "\" OR Category:\"" + category + "\"";
+    public static void runSingleQuery(String category, String clue, String expectedResult) throws IOException, ParseException {
+        category = category.replace("(", "");
+        category = category.replace(")", "");
 
-        SearchEngine searchEngine = new SearchEngine();
-        TopDocs topDocs = searchEngine.performSearch(query, maxDocNoToRetrieve);
+        String queryString = "(" + clue + ") OR (" + category + ")";
+
+        String[] fields = new String[]{"Body", "Content"};
+        SearchEngine searchEngine = new SearchEngine(fields);
+        TopDocs topDocs = searchEngine.performSearch(queryString, maxDocNoToRetrieve);
         ScoreDoc[] hits = topDocs.scoreDocs;
 
         boolean perfectHitFound = false;
@@ -140,6 +157,7 @@ public class Main {
 
             if(Objects.equals(document.get("Title"), expectedResult)) {
                 perfectHitFound = true;
+                hitsFound++;
             }
         }
         if(hits.length > 0) {
@@ -148,7 +166,7 @@ public class Main {
         System.out.println("** Found " + hits.length + " hits.");
         System.out.println("** Perfect hit found: " + perfectHitFound + "\n");
 
-        System.out.println("** Content: " + body);
+        System.out.println("** Content: " + clue);
         System.out.println("** Expected result: " + expectedResult);
         System.out.println("----------------------------------------------------------");
     }

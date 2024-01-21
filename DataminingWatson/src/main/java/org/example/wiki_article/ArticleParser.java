@@ -1,13 +1,12 @@
 package org.example.wiki_article;
 
+import org.example.CustomComparator;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -17,7 +16,6 @@ public class ArticleParser {
 	String dataPath = "src/main/java/org/example/wiki-subset-20140602";
 
 	public void run(ArticleIndexer articleIndexer) throws IOException {
-
 		this.articleIndexer = articleIndexer;
 
 		List<File> files = this.getFilesFromDirectory(new File(dataPath));
@@ -28,8 +26,7 @@ public class ArticleParser {
 
 	private void addArticlesToIndexWriter(ArticleParseResult result) throws IOException {
 		for (Article currArt : result.getArticleList()) {
-			List<String> redirectPageTitles = result.getRedirectPageTitles().get(currArt.getTitle());
-			articleIndexer.indexArticle(currArt, redirectPageTitles, articleIndexer);
+			articleIndexer.indexArticle(currArt, result.getRedirectPageTitles().get(currArt.getTitle()), articleIndexer);
 		}
 	}
 
@@ -55,7 +52,7 @@ public class ArticleParser {
 	}
 
 	private ArticleParseResult createArticlesFromDirectory(List<File> files) {
-		List<Article> articleList = new ArrayList<>();
+		Set<Article> articleList = new TreeSet<>(new CustomComparator());
 		Map<String, List<String>> redirectPageTitles = new HashMap<>();
 		ArticleParseResult result = new ArticleParseResult(articleList, redirectPageTitles);
 
@@ -74,8 +71,8 @@ public class ArticleParser {
 		return result;
 	}
 
-	private ArticleParseResult processFile(String filePath, List<Article> articleList, Map<String, List<String>> redirectPageTitles) {
-		List<Article> auxArticleList = new ArrayList<>();
+	private ArticleParseResult processFile(String filePath, Set<Article> articleList, Map<String, List<String>> redirectPageTitles) {
+		Set<Article> auxArticleList = new TreeSet<>(new CustomComparator());
 		Map<String, List<String>> auxRedirectPageTitles = new HashMap<>();
 
 		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
@@ -133,7 +130,7 @@ public class ArticleParser {
 			}
 		}
 
-		return new ArticleParseResult(auxArticleList, redirectPageTitles);
+		return new ArticleParseResult(articleList, redirectPageTitles);
 	}
 
 	public static boolean isTitle(String input) {
