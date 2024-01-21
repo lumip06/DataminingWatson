@@ -77,22 +77,33 @@ public class Main {
     }
 
     private static void runQuery() {
-        System.out.println("Enter a search query: ");
-
         Scanner in = new Scanner(System.in);
+
+        System.out.println("Enter the question category (press enter for no category): ");
+        String category = in.nextLine();
+
+        System.out.println("Enter a search query: ");
         String query = in.nextLine();
         
         try {
-            System.out.println("Performing search");
+            System.out.println("\n");
+            System.out.println("* Performing search...");
 
             long startTime = System.nanoTime();
-            String[] fields = new String[]{"Body"};
+
+            String[] fields;
+            if(Objects.equals(category, "")) {
+                fields = new String[]{"Body"};
+            } else {
+                fields = new String[]{"Category", "Body"};
+            }
             SearchEngine se = new SearchEngine(fields);
             TopDocs td = se.performSearch(query, maxDocNoToRetrieve);
+
             long estimatedTime = System.nanoTime() - startTime;
             double seconds = (double) estimatedTime / 1000000000.0;
 
-            System.out.println("Results Found (Elapsed Time: " + seconds + " Seconds)");
+            System.out.println("* Results Found! (Elapsed Time: " + seconds + " Seconds)\n");
             ScoreDoc[] hits = td.scoreDocs;
 
             prettyPrint(hits, se);
@@ -176,7 +187,7 @@ public class Main {
     }
 
     public static void prettyPrint(ScoreDoc[] hits, SearchEngine se) {
-        String id, link, title, desc;
+        String id;
         float score;
         try {
             System.out.println("-----------------------------");
@@ -186,36 +197,8 @@ public class Main {
             for (int i = 0; i < hits.length; i++) {
                 Document doc = se.getDocument(hits[i].doc);
                 score = hits[i].score;
-                id = (i + 1) + ". \t" + doc.get("Title") + "\t( " + score + " )";
+                id = (i + 1) + ". \t" + doc.get("Title") + "\t(score: " + score + " )";
                 System.out.println(id);
-
-//                Document doc = se.getDocument(hits[i].doc);
-//
-//                score = hits[i].score;
-////                id = "| Article " + doc.get("Title") + "\t( " + score + ") |";
-//                id = "| " + doc.get("Title") + "\t( " + score + ") |";
-//                title = "| " + doc.get("Title");
-//                desc = "| -> " + doc.get("category");
-//                link = "https://ro.wikipedia.org/wiki/" + doc.get("Title");
-//                link = link.replace(" ", "_");
-//                link = "| " + link;
-//
-////                System.out.println("");
-//                for (int x = 0; x <= id.length() + 2; x++) {
-//                    System.out.print("-");
-//                }
-////                System.out.println("");
-//                System.out.println(id);
-//                for (int x = 0; x <= id.length() + 2; x++) {
-//                    System.out.print("-");
-//                }
-//                System.out.println("");
-//
-////                System.out.println(title);
-//
-////                System.out.println(desc);
-//
-////                System.out.println(link);
             }
         } catch (Exception e) {
             System.out.println("Oopps! :( something went wrong!");
