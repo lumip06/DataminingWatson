@@ -1,123 +1,55 @@
 package org.example.wiki_article;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Article {
-	private String id;
-	private String link;
 	private String title;
-	private String disc;
+	private List<String> categories;
+	private String body;
 
-	/**
-	 * Create a new Article instance
-	 */
 	public Article() {
+		this.title = "";
+		this.categories = new ArrayList<>();
+		this.body = "";
 	}
 
-	/**
-	 * Create a new Article instance
-	 * 
-	 * @param _id
-	 *            Article ID
-	 * @param _link
-	 *            Article link (URL)
-	 * @param _title
-	 *            Article Title
-	 * @param _disc
-	 *            Article Description
-	 */
-	public Article(String _id, String _link, String _title, String _disc) {
-		this.id = _id;
-		this.title = _title;
-		this.link = _link;
-		this.disc = _disc;
+	public Article(String title, List<String> categories, String body) {
+		this.title = title;
+		this.categories = categories;
+		this.body = body;
 	}
 
-	/**
-	 * Set the Article ID value
-	 * 
-	 * @param _id
-	 *            Article ID value
-	 */
-	public void setId(String _id) {
-		this.id = _id;
-	}
-
-	/**
-	 * Get the Article ID value
-	 * 
-	 * @return Article ID
-	 */
-	public String getId() {
-		return this.id;
-	}
-
-	/**
-	 * Set the Article Link (URL) value
-	 * 
-	 * @param _link
-	 *            Article Link value
-	 */
-	public void setLink(String _link) {
-		this.link = _link;
-	}
-
-	/**
-	 * Get the Article Link (URL) value
-	 * 
-	 * @return Article Link
-	 */
-	public String getLink() {
-		return this.link;
-	}
-
-	/**
-	 * Set the Article Title value
-	 * 
-	 * @param _title
-	 *            Article Title value
-	 */
-	public void setTitle(String _title) {
-		this.title = _title;
-	}
-
-	/**
-	 * Get the Article Title value
-	 * 
-	 * @return Article Title
-	 */
 	public String getTitle() {
-		return this.title;
+		return title;
 	}
 
-	/**
-	 * Set the Article Description value
-	 * 
-	 * @param _desc
-	 *            Article Description value
-	 */
-	public void setDesc(String _desc) {
-		this.disc = _desc;
+	public void setTitle(String title) {
+		this.title = title;
 	}
 
-	/**
-	 * Get the Article Description value
-	 * 
-	 * @return Article Description
-	 */
-	public String getDesc() {
-		return this.disc;
+	public List<String> getCategories() {
+		return categories;
+	}
+
+	public void setCategories(List<String> categories) {
+		this.categories = categories;
+	}
+
+	public String getBody() {
+		return body;
+	}
+
+	public void setBody(String body) {
+		this.body = body;
 	}
 
 	public Article newArticle() {
 		return new Article();
 	}
 
-	/**
-	 * Pretty print Article instance
-	 * 
-	 * @return Article instance in a string
-	 */
 	public String toString() {
-		String res = "Article " + getId() + ": **" + getTitle() + "** (" + getLink() + ")\n" + "-> " + getDesc() + "\n";
+		String res = "Article " + getTitle() + ": **" + "https://ro.wikipedia.org/wiki/" + getTitle() + "** (" + getCategories().toString() + ")\n";
 
 		return res;
 	}

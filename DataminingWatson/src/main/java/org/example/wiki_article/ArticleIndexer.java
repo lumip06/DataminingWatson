@@ -1,105 +1,101 @@
 package org.example.wiki_article;
 
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
+import org.apache.lucene.document.*;
+import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
-import javax.xml.stream.XMLStreamException;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 public class ArticleIndexer {
-	private IndexWriter indexwr;
-	String indexPath = "Wiki-Index";
+	private IndexWriter indexWriter;
+	private static final String indexPath = "Wiki-Index";
 
-	/**
-	 * Constructor
-	 */
-	public ArticleIndexer() {
+	public ArticleIndexer() {}
+
+	public void createIndex() throws IOException {
+		deleteFilesFromDirectory();
+
+		getIndexWriter();
+
+		ArticleParser parser = new ArticleParser(this);
+		parser.run();
+
+		closeIndexWriter();
 	}
 
-	/**
-	 * Make directory for indexing, configure the index writer and create it.
-	 * 
-	 * @return instance of the Index Writer
-	 * @throws IOException
-	 */
+	public static void deleteFilesFromDirectory() {
+		File folder = new File(indexPath);
+		if (!folder.exists() || !folder.isDirectory()) {
+			throw new RuntimeException("Folder does not exist");
+		}
+
+		File[] files = folder.listFiles();
+		if (files != null) {
+			for (File file : files) {
+				if (file.isFile()) {
+					file.delete();
+				}
+			}
+		}
+	}
+
 	private IndexWriter getIndexWriter() throws IOException {
 		File dir = new File(indexPath);
-		if (indexwr == null) {
-			// make directory if not exits
+		if (indexWriter == null) {
 			if (!dir.exists()) {
 				dir.mkdir();
 			}
 
-			// open and configure
 			Directory indexDir = FSDirectory.open(dir.toPath());
-			IndexWriterConfig config = new IndexWriterConfig(new StandardAnalyzer());
+			IndexWriterConfig config = new IndexWriterConfig(new EnglishAnalyzer());
 			config.setOpenMode(OpenMode.CREATE);
-			indexwr = new IndexWriter(indexDir, config);
+			indexWriter = new IndexWriter(indexDir, config);
 		}
-		return indexwr;
+		return indexWriter;
 	}
 
-	/**
-	 * Close the Index Writer
-	 * 
-	 * @throws IOException
-	 */
 	private void closeIndexWriter() throws IOException {
-		if (indexwr != null) {
-			indexwr.close();
+		if (indexWriter != null) {
+			indexWriter.commit();
+			indexWriter.close();
 		}
 	}
 
-	/**
-	 * Index one article at a time to an open Index with an open Index Writer.
-	 * (Usually called from the Article Parser class)
-	 * 
-	 * @param currArticle
-	 *            Article to be indexed
-	 * @param index
-	 *            Index instance
-	 * @throws IOException
-	 */
-	public void indexArticle(Article currArticle, ArticleIndexer index) throws IOException {
-		System.out.println("Indexing Article " + currArticle.getId());
+	public void indexArticle(Article currentArticle, List<String> redirectedPages) throws IOException {
+		System.out.println("Indexing Article " + currentArticle.getTitle());
 
-		// create a document and fill out its fields
-		Document doc = new Document();
-		doc.add(new StringField("ID", currArticle.getId(), Field.Store.YES));
-		doc.add(new StringField("Title", currArticle.getTitle(), Field.Store.YES));
-		doc.add(new StringField("Link", currArticle.getLink(), Field.Store.YES));
-		doc.add(new StringField("Description", currArticle.getDesc(), Field.Store.YES));
-		String searchableText = currArticle.getTitle() + " " + currArticle.getDesc();
-		doc.add(new TextField("Content", searchableText, Field.Store.NO));
+		Document currentDocument = new Document();
 
-		// write document to index
-		index.indexwr.addDocument(doc);
-	}
+		FieldType titleFieldType = new FieldType();
+		titleFieldType.setStored(true);
+		titleFieldType.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
+		currentDocument.add(new Field("Title", currentArticle.getTitle(), titleFieldType));
 
-	/**
-	 * Rebuild Index by reindexing all the current data set.
-	 * 
-	 * @throws IOException
-	 * @throws XMLStreamException
-	 */
-	public void rebuildIndexes() throws IOException, XMLStreamException {
-		// get index writer
-		getIndexWriter();
+		if (redirectedPages != null) {
+			for (String title : redirectedPages){
+				currentDocument.add(new Field("Title", title, titleFieldType));
+			}
+		}
 
-		// run parser
-		ArticleParser parser = new ArticleParser();
-		parser.run(this);
+		FieldType categoryFieldType = new FieldType();
+		categoryFieldType.setStored(true);
+		categoryFieldType.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
+		if (currentArticle.getCategories().isEmpty()) {
+			currentDocument.add(new Field("Category", "", categoryFieldType));
+		} else {
+			for (String category : currentArticle.getCategories()) {
+				currentDocument.add(new Field("Category", category, categoryFieldType));
+			}
+		}
+		currentDocument.add(new TextField("Body", currentArticle.getBody(), Field.Store.NO));
 
-		// close index writer
-		closeIndexWriter();
+		indexWriter.addDocument(currentDocument);
 	}
 }

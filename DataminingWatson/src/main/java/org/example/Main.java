@@ -1,185 +1,124 @@
 package org.example;
 
 import org.apache.lucene.document.Document;
+import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
-import org.example.measurement.NDCG;
 import org.example.wiki_article.ArticleIndexer;
 
-import javax.xml.stream.XMLStreamException;
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.util.Objects;
 import java.util.Scanner;
+import java.util.regex.Pattern;
 
 public class Main {
-    static boolean exit = false, options = false;
-    static int ret = 10;
-    static String query = null;
+    private static final String questionsPath = "src/main/java/org/example/questions/questions.txt";
+    private static int maxDocNoToRetrieve = 10;
+    private static int hitsFound, perfectHitsFound;
 
-    public Main() {
-    }
+    public static void main(String[] args) {
+        String option;
+        boolean exit = false;
 
-    /**
-     * Main method to run the whole program.<br>
-     * Takes the user input and dispatches it accordingly.
-     *
-     * @param ars
-     *            argument parameters. (not needed)
-     */
-    public static void main(String ars[]) {
         do {
             System.out.println("\n\n******************************************************");
-            System.out.println("Welcome To Wikipedia offline *Mini* Search Engine V1.0");
+            System.out.println("IBM’s Watson Project");
             System.out.println("******************************************************");
-            System.out.println("For the system options, press OP anytime");
-            System.out.println("To exit, press Q anytim");
-            System.out.println("OR! Enter a search query: ");
+            System.out.println("[1]. Create index");
+            System.out.println("[2]. Run query");
+            System.out.println("[3]. Run questions");
+            System.out.println("[4]. Set max number of retrieved documents  (>0  - Default 10)");
+            System.out.println("[0]. Exit");
+            System.out.println("Enter a number: ");
 
-            // wait for user input
             Scanner in = new Scanner(System.in);
-            query = in.nextLine();
+            option = in.nextLine();
 
-            // dispatch user inout
-            switch (query) {
-                case "OP":
-                    options = true;
-                    moreOptions();
-                    options = false;
-                    query = null;
-                    break;
-                case "op":
-                    options = true;
-                    moreOptions();
-                    options = false;
-                    query = null;
-                    break;
-                case "Q":
+            switch (option) {
+                case "0" -> {
                     System.out.println("System Exiting...Bye!");
                     exit = true;
-                    break;
-                case "q":
-                    System.out.println("System Exiting...Bye!");
-                    exit = true;
-                    options = false;
-                    break;
-                case "m":
-                    List<Integer> rankedItems = Arrays.asList(1, 2, 3, 4, 5);
-                    Collection<Integer> correctItems = Arrays.asList(3, 4, 5);
-                    Collection<Integer> ignoreItems = Arrays.asList(2);
-
-                    // Calculate NDCG
-                    double ndcg = NDCG.compute(rankedItems, correctItems, ignoreItems);
-
-                    // Calculate precision
-                    //TODO Calculate precision
-
-                    // Print the result
-                    System.out.println("NDCG: " + ndcg);
-                    System.out.println("Precision: " + 0);
-
-                    break;
-                case "":
-                    break;
-                default:
-                    searchQuery(query);
-                    break;
+                }
+                case "1" -> createIndex();
+                case "2" -> runQuery();
+                case "3" -> runQuestions();
+                case "4" -> setTopDocNum();
+                default -> {
+                }
             }
         } while (!exit);
     }
 
-    /**
-     * Runs if "OP" / "op" was invoked by the user to customize options of the
-     * server.
-     */
-    private static void moreOptions() {
-        int op;
-        String[] args = {};
-
-        System.out.println("\n\n********************");
-        System.out.println("Customizable Options");
-        System.out.println("********************");
-        System.out.println("0. Go Back");
-        System.out.println("1.Redo data preprocessing & Indexing");
-        System.out.println("2.Reindex wikipedia Articles");
-        System.out.println("Or, Set max number of retrieved documents  (> 4 - Default 10)");
+    private static void setTopDocNum() {
         System.out.println("Enter a number: ");
 
-        // wait for user input
         Scanner in = new Scanner(System.in);
-        op = in.nextInt();
+        int option = in.nextInt();
 
-        // dispatch user input
-        do {
-            switch (op) {
-                case 0:
-                    options = false;
-                    break;
-                case 1:
-                    preProcessData();
-                    reIndexAll();
-                    options = false;
-                    break;
-                case 2:
-                    reIndexAll();
-                    options = false;
-                    break;
-                default:
-                    topDocNum(op);
-                    options = false;
-                    break;
-            }
-        } while (options);
+        if(option > 0) {
+            maxDocNoToRetrieve = option;
+        }
     }
 
-    /**
-     * Rebuild the FULL version of the index. (always overwrite the old)
-     */
-    private static void reIndexAll() {
+    private static void createIndex() {
         try {
             System.out.println("**********************");
-            System.out.println("* Rebuilding Indexes *");
+            System.out.println("* Creating Indexes *");
             System.out.println("**********************");
 
-            // reindex
             long startTime = System.nanoTime();
+
             ArticleIndexer indexer = new ArticleIndexer();
-            indexer.rebuildIndexes();
+            indexer.createIndex();
+
             long estimatedTime = System.nanoTime() - startTime;
             double seconds = (double) estimatedTime / 1000000000.0;
 
+            System.out.println("\n----------------------------------------------------------");
             System.out.println("(Elapsed Time : " + seconds + " Seconds)");
             System.out.println("****************************");
-            System.out.println("* Rebuilding Indexes DONE! *");
+            System.out.println("* Creating Indexes DONE! *");
             System.out.println("****************************");
         } catch (IOException e) {
-            System.out.println("Oopps! :( something went wrong!");
-            e.printStackTrace();
-        } catch (XMLStreamException e) {
             System.out.println("Oopps! :( something went wrong!");
             e.printStackTrace();
         }
     }
 
-    /**
-     * Searches a user query against the current dataset index.
-     *
-     * @param q
-     *            Query string from the user
-     */
-    private static void searchQuery(String q) {
-        try {
-            System.out.println("Performing search");
+    private static void runQuery() {
+        Scanner in = new Scanner(System.in);
 
-            // SEARCH
+        System.out.println("Enter the question category (press enter for no category): ");
+        String category = in.nextLine();
+
+        System.out.println("Enter a search query: ");
+        String clue = in.nextLine();
+
+        try {
+            System.out.println("\n");
+            System.out.println("* Performing search...");
+
             long startTime = System.nanoTime();
-            SearchEngine se = new SearchEngine();
-            TopDocs td = se.performSearch(q, ret);
+
+            String[] fields;
+            String queryString;
+            if(Objects.equals(category, "")) {
+                fields = new String[]{"Body"};
+                queryString = clue;
+            } else {
+                fields = new String[]{"Body", "Category"};
+                queryString = "(" + clue + ") OR (" + category + ")";
+            }
+
+            SearchEngine se = new SearchEngine(fields);
+            TopDocs td = se.performSearch(queryString, maxDocNoToRetrieve);
+
             long estimatedTime = System.nanoTime() - startTime;
             double seconds = (double) estimatedTime / 1000000000.0;
 
-            System.out.println("Results Found (Elapsed Time: " + seconds + " Seconds)");
+            System.out.println("* Results Found! (Elapsed Time: " + seconds + " Seconds)\n");
             ScoreDoc[] hits = td.scoreDocs;
 
             prettyPrint(hits, se);
@@ -189,65 +128,105 @@ public class Main {
         }
     }
 
-    /**
-     * Redo pre-processing steps and also reindex after.
-     */
-    private static void preProcessData() {
-        String[] args = {};
-        TextToXml.main(args);
+    public static void runQuestions() {
+        try(BufferedReader reader = new BufferedReader(new FileReader(questionsPath))) {
+            System.out.println("***********************");
+            System.out.println("* Performing search...");
+            System.out.println("***********************");
+
+            long startTime = System.nanoTime();
+
+            String line;
+            Pattern pattern = Pattern.compile("[.,:;!?-]");
+            hitsFound = 0;
+            perfectHitsFound = 0;
+
+            while ((line = reader.readLine()) != null) {
+                if (line.isBlank()) {
+                    continue;
+                }
+
+                String category = line.trim().replaceAll(pattern.pattern(), "");
+                line = reader.readLine();
+                String clue = line.trim().replaceAll(pattern.pattern(), "");
+                line = reader.readLine();
+                String answer = line.trim();
+
+                runSingleQuery(category, clue, answer);
+            }
+
+            long estimatedTime = System.nanoTime() - startTime;
+            double seconds = (double) estimatedTime / 1000000000.0;
+
+            System.out.println("\n**********************************************************");
+            System.out.println("* Results Found! (Elapsed Time: " + seconds + " Seconds)");
+            System.out.println("");
+            System.out.println("* Hits found (not on first position): " + hitsFound + "/100");
+            System.out.println("* Perfect hits found (on first position): " + perfectHitsFound + "/100");
+            System.out.println("**********************************************************\n");
+        } catch (IOException | ParseException e) {
+            throw new RuntimeException("Error reading questions file", e);
+        }
     }
 
-    /**
-     * Changes the default number of the documents retrieved (10).
-     *
-     * @param i
-     *            the new number
-     */
-    private static void topDocNum(int i) {
-        ret = i;
+    public static void runSingleQuery(String category, String clue, String answer) throws IOException, ParseException {
+        category = category.replace("(", "");
+        category = category.replace(")", "");
+
+        String queryString = "(" + clue + ") OR (" + category + ")";
+
+        String[] fields = new String[]{"Body", "Category"};
+        SearchEngine searchEngine = new SearchEngine(fields);
+        TopDocs topDocs = searchEngine.performSearch(queryString, maxDocNoToRetrieve);
+        ScoreDoc[] hits = topDocs.scoreDocs;
+
+        boolean hitFound = false;
+        boolean perfectHitFound = false;
+        String id;
+        float score;
+
+        System.out.println("\n----------------------------------------------------------");
+
+        for (int i = 0; i < hits.length; i++) {
+            Document document = searchEngine.getDocument(hits[i].doc);
+            score = hits[i].score;
+            id = (i + 1) + ". \t" + document.get("Title") + "\t(score: " + score + " )";
+            System.out.println(id);
+
+            if(Objects.equals(document.get("Title"), answer)) {
+                if(i == 0) {
+                    perfectHitFound = true;
+                    perfectHitsFound++;
+                }
+                hitFound = true;
+                hitsFound++;
+            }
+        }
+        if(hits.length > 0) {
+            System.out.println("");
+        }
+        System.out.println("** Found " + hits.length + " hits.");
+        System.out.println("** Hit found: " + hitFound);
+        System.out.println("** Perfect hit found: " + perfectHitFound + "\n");
+
+        System.out.println("** Clue: " + clue);
+        System.out.println("** Answer: " + answer);
+        System.out.println("----------------------------------------------------------");
     }
 
-    /**
-     * Pretty output the final search results.
-     *
-     * @param hits
-     *            documents retrieved that have the top hits.
-     * @param se
-     *            A search engine instance.
-     */
-    public static void prettyPrint(ScoreDoc[] hits, SearchEngine se) {
-        String id, link, title, desc;
+    public static void prettyPrint(ScoreDoc[] hits, SearchEngine searchEngine) {
+        String id;
         float score;
         try {
             System.out.println("-----------------------------");
-            System.out.println("| Search Result Top " + ret + " found |");
+            System.out.println("| Search Result Top " + maxDocNoToRetrieve + " found |");
             System.out.println("-----------------------------");
 
             for (int i = 0; i < hits.length; i++) {
-                Document doc = se.getDocument(hits[i].doc);
-
+                Document doc = searchEngine.getDocument(hits[i].doc);
                 score = hits[i].score;
-                id = "| Article " + doc.get("ID") + "\t( " + Float.toString(score) + ") |";
-                title = "| " + doc.get("Title");
-                desc = "| -> " + doc.get("Description");
-                link = "| " + doc.get("Link");
-
-                System.out.println("");
-                for (int x = 0; x <= id.length() + 2; x++) {
-                    System.out.print("-");
-                }
-                System.out.println("");
+                id = (i + 1) + ". \t" + doc.get("Title") + "\t(score: " + score + " )";
                 System.out.println(id);
-                for (int x = 0; x <= id.length() + 2; x++) {
-                    System.out.print("-");
-                }
-                System.out.println("");
-
-                System.out.println(title);
-
-                System.out.println(desc);
-
-                System.out.println(link);
             }
         } catch (Exception e) {
             System.out.println("Oopps! :( something went wrong!");
