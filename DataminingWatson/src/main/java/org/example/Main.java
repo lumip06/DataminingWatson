@@ -4,6 +4,7 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
+import org.example.measurement.Measurement;
 import org.example.wiki_article.ArticleIndexer;
 
 import java.io.BufferedReader;
@@ -159,8 +160,8 @@ public class Main {
             long estimatedTime = System.nanoTime() - startTime;
             double seconds = (double) estimatedTime / 1000000000.0;
 
-            double mrr = computeMRR(listResults);
-            String formattedMRR = String.format("%.3f", mrr);
+            double mrrResult = Measurement.computeMRR(listResults);
+            String formattedMRR = String.format("%.3f", mrrResult);
 
             System.out.println("\n**********************************************************");
             System.out.println("* Results Found! (Elapsed Time: " + seconds + " Seconds)");
@@ -192,6 +193,8 @@ public class Main {
         ScoreDoc[] hits = topDocs.scoreDocs;
 
         List<String> correctAnswers = Arrays.asList(answer.split("\\|"));
+        List<String> rankedItems = new ArrayList<>();
+        Collection<String> correctItems = new ArrayList<>();
         boolean hitFound = false;
         boolean perfectHitFound = false;
         String id;
@@ -204,6 +207,8 @@ public class Main {
             Document document = searchEngine.getDocument(hits[i].doc);
 
             List<String> documentTitles = Arrays.asList(document.getValues("Title"));
+            rankedItems.addAll(documentTitles);
+            correctItems.addAll(correctAnswers);
 
             score = hits[i].score;
             id = (i + 1) + ". \t" + document.get("Title") + "\t(score: " + score + " )";
@@ -216,20 +221,24 @@ public class Main {
                 }
                 hitFound = true;
                 hitsFound++;
-            }
-            if (!Collections.disjoint(correctAnswers, documentTitles) && result == 0) {
                 result = i + 1;
             }
         }
         if(hits.length > 0) {
             System.out.println("");
         }
+
+        double ndcgResult = Measurement.computeNDCG(rankedItems, correctItems, null);
+        String formattedNDCG = String.format("%.3f", ndcgResult);
+
         System.out.println("** Found " + hits.length + " hits.");
         System.out.println("** Hit found: " + hitFound);
         System.out.println("** Perfect hit found: " + perfectHitFound);
         System.out.println("");
         System.out.println("** Clue: " + clue);
         System.out.println("** Answer: " + answer);
+        System.out.println("");
+        System.out.println("** The NDCG is: " + formattedNDCG);
         System.out.println("----------------------------------------------------------");
 
         return result;
@@ -253,16 +262,5 @@ public class Main {
             System.out.println("Oopps! :( something went wrong!");
             e.printStackTrace();
         }
-    }
-
-    public static double computeMRR(List<Integer> ranks) {
-        if (ranks.isEmpty()) {
-            throw new IllegalArgumentException("Input list of ranks is empty.");
-        }
-        return ranks.stream()
-                .map(rank -> rank == 0 ? 0.0 : 1.0 / rank)
-                .mapToDouble(Double::doubleValue)
-                .average()
-                .orElse(0.0);
     }
 }
