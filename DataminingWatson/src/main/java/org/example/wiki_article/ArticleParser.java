@@ -12,22 +12,18 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public class ArticleParser {
-	ArticleIndexer articleIndexer = null;
 	String dataPath = "src/main/java/org/example/wiki-subset-20140602";
+	ArticleIndexer articleIndexer;
 
-	public void run(ArticleIndexer articleIndexer) throws IOException {
+	public ArticleParser(ArticleIndexer articleIndexer) {
 		this.articleIndexer = articleIndexer;
-
-		List<File> files = this.getFilesFromDirectory(new File(dataPath));
-		ArticleParseResult result = this.createArticlesFromDirectory(files);
-
-		this.addArticlesToIndexWriter(result);
 	}
 
-	private void addArticlesToIndexWriter(ArticleParseResult result) throws IOException {
-		for (Article currArt : result.getArticleList()) {
-			articleIndexer.indexArticle(currArt, result.getRedirectPageTitles().get(currArt.getTitle()), articleIndexer);
-		}
+	public void run() throws IOException {
+		List<File> files = this.getFilesFromDirectory(new File(dataPath));
+		ArticleParseResult result = this.parseFiles(files);
+
+		this.addArticlesToIndexWriter(result);
 	}
 
 	public List<File> getFilesFromDirectory(File dir) {
@@ -51,17 +47,23 @@ public class ArticleParser {
 		return directories;
 	}
 
-	private ArticleParseResult createArticlesFromDirectory(List<File> files) {
-		Set<Article> articleList = new TreeSet<>(new CustomComparator());
+	private void addArticlesToIndexWriter(ArticleParseResult result) throws IOException {
+		for (Article currentArticle : result.getArticleSet()) {
+			articleIndexer.indexArticle(currentArticle, result.getRedirectPageTitles().get(currentArticle.getTitle()));
+		}
+	}
+
+	private ArticleParseResult parseFiles(List<File> files) {
+		Set<Article> articleSet = new TreeSet<>(new CustomComparator());
 		Map<String, List<String>> redirectPageTitles = new HashMap<>();
-		ArticleParseResult result = new ArticleParseResult(articleList, redirectPageTitles);
+		ArticleParseResult result = new ArticleParseResult(articleSet, redirectPageTitles);
 
 		int i = 1;
 		System.out.println("\n");
 		for (File file : files) {
-			result = processFile(file.getPath(), articleList, redirectPageTitles);
+			result = processFile(file.getPath(), articleSet, redirectPageTitles);
 
-			articleList = result.getArticleList();
+			articleSet = result.getArticleSet();
 			redirectPageTitles = result.getRedirectPageTitles();
 
 			System.out.println(">>> file no.: " + i);
@@ -71,8 +73,8 @@ public class ArticleParser {
 		return result;
 	}
 
-	private ArticleParseResult processFile(String filePath, Set<Article> articleList, Map<String, List<String>> redirectPageTitles) {
-		Set<Article> auxArticleList = new TreeSet<>(new CustomComparator());
+	private ArticleParseResult processFile(String filePath, Set<Article> articleSet, Map<String, List<String>> redirectPageTitles) {
+		Set<Article> auxArticleSet = new TreeSet<>(new CustomComparator());
 		Map<String, List<String>> auxRedirectPageTitles = new HashMap<>();
 
 		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
@@ -89,7 +91,7 @@ public class ArticleParser {
 					if (!article.getTitle().isEmpty() && !wasRedirect) {
 						article.setBody(pageBody.toString());
 						pageBody = new StringBuilder();
-						auxArticleList.add(article);
+						auxArticleSet.add(article);
 					}
 					wasRedirect = false;
 					article = new Article();
@@ -110,14 +112,14 @@ public class ArticleParser {
 			}
 
 			if (!article.getTitle().isEmpty()) {
-				auxArticleList.add(article);
+				auxArticleSet.add(article);
 			}
 
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 
-		articleList.addAll(auxArticleList);
+		articleSet.addAll(auxArticleSet);
 
 		for (Map.Entry<String, List<String>> item : auxRedirectPageTitles.entrySet()) {
 			String key = item.getKey();
@@ -130,7 +132,7 @@ public class ArticleParser {
 			}
 		}
 
-		return new ArticleParseResult(articleList, redirectPageTitles);
+		return new ArticleParseResult(articleSet, redirectPageTitles);
 	}
 
 	public static boolean isTitle(String input) {

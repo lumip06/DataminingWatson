@@ -5,20 +5,20 @@ import java.util.Map;
 import java.util.Set;
 
 public class ArticleParseResult {
-    Set<Article> articleList;
+    Set<Article> articleSet;
     Map<String, List<String>> redirectPageTitles;
 
-    public ArticleParseResult(Set<Article> articleList, Map<String, List<String>> redirectPageTitles) {
-        this.articleList = articleList;
+    public ArticleParseResult(Set<Article> articleSet, Map<String, List<String>> redirectPageTitles) {
+        this.articleSet = articleSet;
         this.redirectPageTitles = redirectPageTitles;
     }
 
-    public Set<Article> getArticleList() {
-        return articleList;
+    public Set<Article> getArticleSet() {
+        return articleSet;
     }
 
-    public void setArticleList(Set<Article> articleList) {
-        this.articleList = articleList;
+    public void setArticleSet(Set<Article> articleSet) {
+        this.articleSet = articleSet;
     }
 
     public Map<String, List<String>> getRedirectPageTitles() {

@@ -9,24 +9,23 @@ import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
-import javax.xml.stream.XMLStreamException;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
 public class ArticleIndexer {
 	private IndexWriter indexWriter;
-	static String indexPath = "Wiki-Index";
+	private static final String indexPath = "Wiki-Index";
 
-	public ArticleIndexer() {
-	}
+	public ArticleIndexer() {}
 
-	public void buildIndexes() throws IOException, XMLStreamException {
+	public void createIndex() throws IOException {
 		deleteFilesFromDirectory();
+
 		getIndexWriter();
 
-		ArticleParser parser = new ArticleParser();
-		parser.run(this);
+		ArticleParser parser = new ArticleParser(this);
+		parser.run();
 
 		closeIndexWriter();
 	}
@@ -69,7 +68,7 @@ public class ArticleIndexer {
 		}
 	}
 
-	public void indexArticle(Article currentArticle, List<String> redirectedPages, ArticleIndexer index) throws IOException {
+	public void indexArticle(Article currentArticle, List<String> redirectedPages) throws IOException {
 		System.out.println("Indexing Article " + currentArticle.getTitle());
 
 		Document currentDocument = new Document();
@@ -96,9 +95,7 @@ public class ArticleIndexer {
 			}
 		}
 		currentDocument.add(new TextField("Body", currentArticle.getBody(), Field.Store.NO));
-//		String searchableText = "title:\"" + currentArticle.getTitle() + "\" OR cate" + currentArticle.getCategories() + " " + currentArticle.getBody();
-//		currentDocument.add(new TextField("Content", currentArticle.getBody(), Field.Store.NO));
 
-		index.indexWriter.addDocument(currentDocument);
+		indexWriter.addDocument(currentDocument);
 	}
 }

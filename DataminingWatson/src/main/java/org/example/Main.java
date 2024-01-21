@@ -1,35 +1,25 @@
 package org.example;
 
-import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FSDirectory;
 import org.example.wiki_article.ArticleIndexer;
 
-import javax.xml.stream.XMLStreamException;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Scanner;
 import java.util.regex.Pattern;
 
 public class Main {
-    static int maxDocNoToRetrieve = 10;
-    static String questionsPath = "src/main/java/org/example/questions/questions.txt";
-    static String indexPath = "Wiki-Index";
-    static int hitsFound;
+    private static final String questionsPath = "src/main/java/org/example/questions/questions.txt";
+    private static int maxDocNoToRetrieve = 10;
+    private static int hitsFound;
 
-    public static void main(String ars[]) {
-        String op;
+    public static void main(String[] args) {
+        String option;
         boolean exit = false;
 
         do {
@@ -44,9 +34,9 @@ public class Main {
             System.out.println("Enter a number: ");
 
             Scanner in = new Scanner(System.in);
-            op = in.nextLine();
+            option = in.nextLine();
 
-            switch (op) {
+            switch (option) {
                 case "0" -> {
                     System.out.println("System Exiting...Bye!");
                     exit = true;
@@ -68,16 +58,19 @@ public class Main {
             System.out.println("**********************");
 
             long startTime = System.nanoTime();
+
             ArticleIndexer indexer = new ArticleIndexer();
-            indexer.buildIndexes();
+            indexer.createIndex();
+
             long estimatedTime = System.nanoTime() - startTime;
             double seconds = (double) estimatedTime / 1000000000.0;
 
+            System.out.println("\n----------------------------------------------------------");
             System.out.println("(Elapsed Time : " + seconds + " Seconds)");
             System.out.println("****************************");
             System.out.println("* Creating Indexes DONE! *");
             System.out.println("****************************");
-        } catch (IOException | XMLStreamException e) {
+        } catch (IOException e) {
             System.out.println("Oopps! :( something went wrong!");
             e.printStackTrace();
         }
