@@ -15,11 +15,15 @@ Watson is a project that aims to create a simplified search engine capable of re
 
 ## Requirements
  - IntelliJ IDEA
+ - Java 17
+ - valid openAi Api key
 
 
 ## Compiling & Running the code
 All needed to be done for set-up is just the cloning of the GitHub project. After that, Compiling and running the code is done normally.
 When you first run the code, use the first option from the menu to create the indexes.
+
+!!! open the OpenAiChat file and add your openAiAPi key at line 19. if the key is not present, you will not be able to use the reranking feature!!!
 
 **Note**: In case IntelliJ does not recognize questions.txt changing the path to an absolute one may be advised.
 
