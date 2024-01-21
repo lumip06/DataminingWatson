@@ -5,6 +5,7 @@ import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.example.measurement.Measurement;
+import org.example.questions.Questions;
 import org.example.wiki_article.ArticleIndexer;
 
 import java.io.BufferedReader;
@@ -19,6 +20,25 @@ public class Main {
     private static int hitsFound, perfectHitsFound;
 
     public static void main(String[] args) {
+        Pattern pattern = Pattern.compile("[\"'.,:;!?-]");
+        ArrayList<Questions> defaultQuestions = new ArrayList<>();
+        try(BufferedReader reader = new BufferedReader(new FileReader(questionsPath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.isBlank()) {
+                    continue;
+                }
+                String category = line.trim().replaceAll(pattern.pattern(), "");;
+                line = reader.readLine();
+                String clue = line.trim().replaceAll(pattern.pattern(), "");;
+                line = reader.readLine();
+                String answer = line.trim();
+                defaultQuestions.add(new Questions(category, clue, answer));
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Error reading questions file", e);
+        }
+        OpenAiChat openAiChat = new OpenAiChat();
         String option;
         boolean exit = false;
 
@@ -27,9 +47,10 @@ public class Main {
             System.out.println("IBM’s Watson Project");
             System.out.println("******************************************************");
             System.out.println("[1]. Create index");
-            System.out.println("[2]. Run query");
-            System.out.println("[3]. Run questions");
-            System.out.println("[4]. Set max number of retrieved documents  (>0  - Default 10)");
+            System.out.println("[2]. Run question");
+            System.out.println("[3]. Run question with AI");
+            System.out.println("[4]. Run default questions and measure");
+            System.out.println("[5]. Set max number of retrieved documents  (> 0 - Default 10)");
             System.out.println("[0]. Exit");
             System.out.println("Enter a number: ");
 
@@ -42,9 +63,10 @@ public class Main {
                     exit = true;
                 }
                 case "1" -> createIndex();
-                case "2" -> runQuery();
-                case "3" -> runQuestions();
-                case "4" -> setTopDocNum();
+                case "2" -> runQuery(false, openAiChat, defaultQuestions);
+                case "3" -> runQuery(true, openAiChat, defaultQuestions);
+                case "4" -> runQuestions();
+                case "5" -> setTopDocNum();
                 default -> {
                 }
             }
@@ -87,14 +109,14 @@ public class Main {
         }
     }
 
-    private static void runQuery() {
+    private static void runQuery(boolean runAi, OpenAiChat openAiChat, ArrayList<Questions> defaultQuestions) {
         Scanner in = new Scanner(System.in);
-
+        Pattern pattern = Pattern.compile("[\"'.,:;!?-]");
         System.out.println("Enter the question category (press enter for no category): ");
-        String category = in.nextLine();
+        String category = in.nextLine().replaceAll(pattern.pattern(), "");;
 
         System.out.println("Enter a search query: ");
-        String clue = in.nextLine();
+        String clue = in.nextLine().replaceAll(pattern.pattern(), "");;
 
         try {
             System.out.println("\n");
@@ -120,8 +142,13 @@ public class Main {
 
             System.out.println("* Results Found! (Elapsed Time: " + seconds + " Seconds)\n");
             ScoreDoc[] hits = td.scoreDocs;
+            ArrayList<String> aiResults = new ArrayList<>();
+            if(runAi){
+                aiResults = openAiChat.reorder(se, new ArrayList<>(List.of(hits)), clue);
+            }
 
-            prettyPrint(hits, se);
+            List<Questions> foundQuestions = defaultQuestions.stream().filter(q-> q.getCategory().equals(category) && q.getClue().equals(clue)).toList();
+            prettyPrint(hits, se, aiResults, foundQuestions);
         } catch (Exception e) {
             System.out.println("Oopps! :( something went wrong!");
             e.printStackTrace();
@@ -139,7 +166,7 @@ public class Main {
             long startTime = System.nanoTime();
 
             String line;
-            Pattern pattern = Pattern.compile("[.,:;!?-]");
+            Pattern pattern = Pattern.compile("[\"'.,:;!?-]");
             hitsFound = 0;
             perfectHitsFound = 0;
 
@@ -153,7 +180,6 @@ public class Main {
                 String clue = line.trim().replaceAll(pattern.pattern(), "");
                 line = reader.readLine();
                 String answer = line.trim();
-
                 listResults.add(runSingleQuery(category, clue, answer));
             }
 
@@ -200,7 +226,6 @@ public class Main {
         String id;
         int result = 0;
         float score;
-
         System.out.println("\n----------------------------------------------------------");
 
         for (int i = 0; i < hits.length; i++) {
@@ -244,23 +269,62 @@ public class Main {
         return result;
     }
 
-    public static void prettyPrint(ScoreDoc[] hits, SearchEngine searchEngine) {
+    public static void prettyPrint(ScoreDoc[] hits, SearchEngine searchEngine, ArrayList<String> aiRank, List<Questions> foundQuestions) {
+        List<String> correctAnswers = Arrays.asList(foundQuestions.get(0).getAnswer().split("\\|"));
         String id;
         float score;
         try {
             System.out.println("-----------------------------");
             System.out.println("| Search Result Top " + maxDocNoToRetrieve + " found |");
             System.out.println("-----------------------------");
-
+            boolean hitFound = false;
+            boolean perfectHitFound = false;
             for (int i = 0; i < hits.length; i++) {
                 Document doc = searchEngine.getDocument(hits[i].doc);
                 score = hits[i].score;
                 id = (i + 1) + ". \t" + doc.get("Title") + "\t(score: " + score + " )";
                 System.out.println(id);
+
+                if(!foundQuestions.isEmpty() && correctAnswers.contains(doc.get("Title"))) {
+                    if(i == 0) {
+                        perfectHitFound = true;
+                        perfectHitsFound++;
+                    }
+                    hitFound = true;
+                    hitsFound++;
+                }
+            }
+            if(!foundQuestions.isEmpty()){
+                System.out.println("** Hit found: " + hitFound);
+                System.out.println("** Perfect hit found: " + perfectHitFound);
             }
         } catch (Exception e) {
             System.out.println("Oopps! :( something went wrong!");
             e.printStackTrace();
+        }
+        if (!aiRank.isEmpty()){
+            boolean hitFound = false;
+            boolean perfectHitFound = false;
+            System.out.println("---------------------------");
+            System.out.println("| AI Result Top " + maxDocNoToRetrieve + " found |");
+            System.out.println("---------------------------");
+
+            for (int i = 0; i < aiRank.size(); i++) {
+                id = (i + 1) + ". \t" + aiRank.get(i);
+                System.out.println(id);
+                if(!foundQuestions.isEmpty() && correctAnswers.contains(aiRank.get(i))) {
+                    if(i == 0) {
+                        perfectHitFound = true;
+                        perfectHitsFound++;
+                    }
+                    hitFound = true;
+                    hitsFound++;
+                }
+            }
+            if(!foundQuestions.isEmpty()){
+                System.out.println("** Hit found: " + hitFound);
+                System.out.println("** Perfect hit found: " + perfectHitFound);
+            }
         }
     }
 }
