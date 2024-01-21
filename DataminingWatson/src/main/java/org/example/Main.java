@@ -9,8 +9,7 @@ import org.example.wiki_article.ArticleIndexer;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Objects;
-import java.util.Scanner;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class Main {
@@ -130,6 +129,8 @@ public class Main {
 
     public static void runQuestions() {
         try(BufferedReader reader = new BufferedReader(new FileReader(questionsPath))) {
+            List<Integer> listResults = new ArrayList<>();
+
             System.out.println("***********************");
             System.out.println("* Performing search...");
             System.out.println("***********************");
@@ -152,48 +153,63 @@ public class Main {
                 line = reader.readLine();
                 String answer = line.trim();
 
-                runSingleQuery(category, clue, answer);
+                listResults.add(runSingleQuery(category, clue, answer));
             }
 
             long estimatedTime = System.nanoTime() - startTime;
             double seconds = (double) estimatedTime / 1000000000.0;
+
+            double mrr = computeMRR(listResults);
+            String formattedMRR = String.format("%.3f", mrr);
 
             System.out.println("\n**********************************************************");
             System.out.println("* Results Found! (Elapsed Time: " + seconds + " Seconds)");
             System.out.println("");
             System.out.println("* Hits found (not on first position): " + hitsFound + "/100");
             System.out.println("* Perfect hits found (on first position): " + perfectHitsFound + "/100");
+            System.out.println("");
+            System.out.println("* The MRR is: " + formattedMRR);
             System.out.println("**********************************************************\n");
         } catch (IOException | ParseException e) {
             throw new RuntimeException("Error reading questions file", e);
         }
     }
 
-    public static void runSingleQuery(String category, String clue, String answer) throws IOException, ParseException {
-        category = category.replace("(", "");
-        category = category.replace(")", "");
+    public static int runSingleQuery(String category, String clue, String answer) throws IOException, ParseException {
+        String[] fields;
+        String queryString;
 
-        String queryString = "(" + clue + ") OR (" + category + ")";
+        if(Objects.equals(category, "")) {
+            fields = new String[]{"Body"};
+            queryString = clue;
+        } else {
+            fields = new String[]{"Body", "Category"};
+            queryString = "(" + clue + ") OR (" + category + ")";
+        }
 
-        String[] fields = new String[]{"Body", "Category"};
         SearchEngine searchEngine = new SearchEngine(fields);
         TopDocs topDocs = searchEngine.performSearch(queryString, maxDocNoToRetrieve);
         ScoreDoc[] hits = topDocs.scoreDocs;
 
+        List<String> correctAnswers = Arrays.asList(answer.split("\\|"));
         boolean hitFound = false;
         boolean perfectHitFound = false;
         String id;
+        int result = 0;
         float score;
 
         System.out.println("\n----------------------------------------------------------");
 
         for (int i = 0; i < hits.length; i++) {
             Document document = searchEngine.getDocument(hits[i].doc);
+
+            List<String> documentTitles = Arrays.asList(document.getValues("Title"));
+
             score = hits[i].score;
             id = (i + 1) + ". \t" + document.get("Title") + "\t(score: " + score + " )";
             System.out.println(id);
 
-            if(Objects.equals(document.get("Title"), answer)) {
+            if(correctAnswers.contains(document.get("Title"))) {
                 if(i == 0) {
                     perfectHitFound = true;
                     perfectHitsFound++;
@@ -201,17 +217,22 @@ public class Main {
                 hitFound = true;
                 hitsFound++;
             }
+            if (!Collections.disjoint(correctAnswers, documentTitles) && result == 0) {
+                result = i + 1;
+            }
         }
         if(hits.length > 0) {
             System.out.println("");
         }
         System.out.println("** Found " + hits.length + " hits.");
         System.out.println("** Hit found: " + hitFound);
-        System.out.println("** Perfect hit found: " + perfectHitFound + "\n");
-
+        System.out.println("** Perfect hit found: " + perfectHitFound);
+        System.out.println("");
         System.out.println("** Clue: " + clue);
         System.out.println("** Answer: " + answer);
         System.out.println("----------------------------------------------------------");
+
+        return result;
     }
 
     public static void prettyPrint(ScoreDoc[] hits, SearchEngine searchEngine) {
@@ -232,5 +253,16 @@ public class Main {
             System.out.println("Oopps! :( something went wrong!");
             e.printStackTrace();
         }
+    }
+
+    public static double computeMRR(List<Integer> ranks) {
+        if (ranks.isEmpty()) {
+            throw new IllegalArgumentException("Input list of ranks is empty.");
+        }
+        return ranks.stream()
+                .map(rank -> rank == 0 ? 0.0 : 1.0 / rank)
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElse(0.0);
     }
 }
